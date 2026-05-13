@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Panel de Vencimientos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0e0f11;
+  --surface: #16181c;
+  --surface2: #1e2126;
+  --border: #2a2d34;
+  --text: #e8e9eb;
+  --text2: #8b8f99;
+  --text3: #5a5e6a;
+  --red: #ff4d4d;
+  --red-bg: #2a1414;
+  --red-border: #5c2020;
+  --amber: #ffb84d;
+  --amber-bg: #261d0d;
+  --amber-border: #5c4010;
+  --green: #4dff91;
+  --green-bg: #0d2618;
+  --green-border: #1a5c35;
+  --blue: #4d9fff;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+/* Noise overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* Header */
+header { padding: 40px 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.header-inner { display: flex; align-items: flex-end; justify-content: space-between; }
+.header-left h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.header-left h1 span { color: var(--amber); }
+.header-left p { font-family: var(--mono); font-size: 12px; color: var(--text3); margin-top: 8px; letter-spacing: 0.08em; }
+.live-badge { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--green); }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; transition: border-color .2s; }
+.stat:hover { border-color: var(--text3); }
+.stat::after { content: ''; position: absolute; inset: 0; opacity: 0.04; border-radius: 12px; }
+.stat.red { border-color: var(--red-border); background: var(--red-bg); }
+.stat.red::after { background: var(--red); }
+.stat.amber { border-color: var(--amber-border); background: var(--amber-bg); }
+.stat.amber::after { background: var(--amber); }
+.stat.green { border-color: var(--green-border); background: var(--green-bg); }
+.stat.green::after { background: var(--green); }
+.stat-num { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.stat.red .stat-num { color: var(--red); }
+.stat.amber .stat-num { color: var(--amber); }
+.stat.green .stat-num { color: var(--green); }
+.stat-default .stat-num { color: var(--text); }
+.stat-label { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Toolbar */
+.toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.toolbar input, .toolbar select {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: 12px; padding: 9px 14px; border-radius: 8px;
+  outline: none; transition: border-color .2s;
+}
+.toolbar input { flex: 1; min-width: 200px; }
+.toolbar input::placeholder { color: var(--text3); }
+.toolbar input:focus, .toolbar select:focus { border-color: var(--text3); }
+.toolbar select option { background: var(--surface2); }
+
+/* Table */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+thead { background: var(--surface2); }
+th { padding: 12px 16px; text-align: left; font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; border-bottom: 1px solid var(--border); }
+td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr { transition: background .15s; }
+tr:hover td { background: var(--surface2); }
+.col-name { width: 26%; }
+.col-prov { width: 16%; }
+.col-fecha { width: 14%; }
+.col-estado { width: 14%; }
+.col-dias { width: 16%; }
+.col-tipo { width: 14%; }
+
+.name-cell { font-weight: 600; font-size: 13px; color: var(--text); }
+.prov-cell { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.fecha-cell { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+.badge-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.badge-gray { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.bdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.bdot-red { background: var(--red); }
+.bdot-amber { background: var(--amber); animation: pulse 2s infinite; }
+.bdot-green { background: var(--green); }
+
+/* Days bar */
+.days-wrap { display: flex; align-items: center; gap: 8px; }
+.days-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.days-bar { height: 100%; border-radius: 2px; transition: width .5s ease; }
+.days-num { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 48px; text-align: right; }
+
+/* Tipo */
+.tipo-tag { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; background: var(--surface2); color: var(--text3); border: 1px solid var(--border); letter-spacing: 0.04em; }
+
+/* Empty */
+.empty { text-align: center; padding: 60px; color: var(--text3); font-family: var(--mono); font-size: 13px; }
+
+/* Footer */
+footer { padding: 24px 0; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 32px; border-top: 1px solid var(--border); }
+
+/* Animate rows */
+tbody tr { animation: fadeIn .3s ease both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="header-inner">
+      <div class="header-left">
+        <h1>Panel de <span>Vencimientos</span></h1>
+        <p id="fecha-hoy">CARGANDO FECHA...</p>
+      </div>
+      <div class="live-badge"><span class="live-dot"></span>ACTUALIZADO EN TIEMPO REAL</div>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Buscar licencia o proveedor..." />
+    <select id="f-estado">
+      <option value="">Todos los estados</option>
+      <option value="vencido">Vencido</option>
+      <option value="critico">Crítico (&lt;7 días)</option>
+      <option value="proximo">Por vencer (&lt;30 días)</option>
+      <option value="vigente">Vigente</option>
+      <option value="perpetuo">Perpetuo / Mensual</option>
+    </select>
+    <select id="f-tipo">
+      <option value="">Todos los tipos</option>
+      <option value="Licencia">Licencia</option>
+      <option value="Certificado">Certificado</option>
+      <option value="Dominio">Dominio</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-name">Nombre</th>
+          <th class="col-prov">Proveedor</th>
+          <th class="col-tipo">Tipo</th>
+          <th class="col-fecha">Vencimiento</th>
+          <th class="col-estado">Estado</th>
+          <th class="col-dias">Días restantes</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <footer>Panel de vencimientos · Datos calculados al abrir · <span id="total-count">0</span> elementos monitoreados</footer>
+</div>
+
+<script>
+const ITEMS = [
+  // PERPETUAS / MENSUALES
+  ["ZOOM",                          "Licencia", "ZOOM",               "2099-12-31"],
+  ["HEXABANK",                      "Licencia", "HEXABANK",           "2099-12-31"],
+  ["MAIL MASIVOS COMUNICACIONES",   "Licencia", "Brevo",              "2099-12-31"],
+  // 2027
+  ["ViewTinet",                     "Licencia", "IT Servisec",        "2027-06-30"],
+  ["IKUSI (Cisco WIFI)",            "Licencia", "IKUSI",              "2027-05-23"],
+  ["AVAYA",                         "Licencia", "AVAYA",              "2027-03-30"],
+  ["Barracuda Email Security",      "Licencia", "IT Servisec",        "2027-04-07"],
+  ["Barracuda Web Security Gateway","Licencia", "IT Servisec",        "2027-04-07"],
+  // 2026
+  ["Sonicwall NSA5600 Circunvalar", "Licencia", "IT Servisec",        "2026-11-14"],
+  ["RADIANT (10 licencias)",        "Licencia", "RADIANT",            "2026-08-29"],
+  ["RADIANT (20 licencias)",        "Licencia", "RADIANT",            "2026-07-31"],
+  ["TrendMicro",                    "Licencia", "IT Servisec",        "2026-06-30"],
+  ["Sonicwall NSV270 Teusaquillo",  "Licencia", "IT Servisec",        "2026-06-16"],
+  ["Sonicwall NSA3600 Propace",     "Licencia", "IT Servisec",        "2026-05-30"],
+  ["OFFICE 365 ESTANDAR EMPRESA",   "Licencia", "TECINF S.A.S",      "2026-03-04"],
+  ["APLICACIONES OFFICE 365",       "Licencia", "TECINF S.A.S",      "2026-01-08"],
+  ["LABCORE",                       "Licencia", "LABCORE",            "2026-01-01"],
+  // 2025
+  ["VEEAM BACKUP",                  "Licencia", "IT/724",             "2025-12-29"],
+  ["VMWARE",                        "Licencia", "IT/724",             "2025-12-29"],
+  ["ADOBE",                         "Licencia", "TECINF S.A.S",      "2025-10-07"],
+  ["VISTA 360",                     "Licencia", "VISTA 360 SOFTWARE", "2025-09-30"],
+  ["Sonicwall NSV270 Soacha",       "Licencia", "IT Servisec",        "2025-06-17"],
+  ["SYNAPSE",                       "Licencia", "SYNAPSE",            "2025-05-30"],
+  ["REDCAP",                        "Licencia", "REDCAT",             "2025-05-17"],
+  ["DISCOVERY (MESA DE AYUDA)",     "Licencia", "LEVER IT",           "2025-04-30"],
+  ["AUTOCAD",                       "Licencia", "TECINF S.A.S",      "2025-04-09"],
+  ["Appgate",                       "Licencia", "GAMA INGENIEROS",    "2025-03-15"],
+  // VENCIDAS
+  ["WEBEX",                         "Licencia", "WEBEX",              "2024-12-03"],
+  ["SAFETICA",                      "Licencia", "GAMA INGENIEROS",    "2024-10-30"],
+  ["A10",                           "Licencia", "GAMA INGENIEROS",    "2024-10-30"],
+  ["ILOVEPDF",                      "Licencia", "ILOVEPDF",           "2024-08-30"],
+];
+
+const today = new Date(); today.setHours(0,0,0,0);
+
+function diasRestantes(fechaStr) {
+  if (fechaStr === "2099-12-31") return null;
+  const f = new Date(fechaStr + "T00:00:00");
+  return Math.round((f - today) / 86400000);
+}
+
+function getEstado(dias) {
+  if (dias === null) return "perpetuo";
+  if (dias < 0) return "vencido";
+  if (dias <= 7) return "critico";
+  if (dias <= 30) return "proximo";
+  return "vigente";
+}
+
+function badgeHTML(estado, dias) {
+  if (estado === "perpetuo") return `<span class="badge badge-gray"><span class="bdot" style="background:var(--text3)"></span>MENSUAL/PERPETUO</span>`;
+  if (estado === "vencido")  return `<span class="badge badge-red"><span class="bdot bdot-red"></span>VENCIDO</span>`;
+  if (estado === "critico")  return `<span class="badge badge-red"><span class="bdot bdot-red"></span>CRÍTICO</span>`;
+  if (estado === "proximo")  return `<span class="badge badge-amber"><span class="bdot bdot-amber"></span>POR VENCER</span>`;
+  return `<span class="badge badge-green"><span class="bdot bdot-green"></span>VIGENTE</span>`;
+}
+
+function diasBarHTML(dias, estado) {
+  if (dias === null) return `<span class="days-num" style="color:var(--text3)">—</span>`;
+  let pct, color;
+  if (dias < 0) { pct = 100; color = 'var(--red)'; }
+  else if (dias <= 7)  { pct = 95; color = 'var(--red)'; }
+  else if (dias <= 30) { pct = 70; color = 'var(--amber)'; }
+  else if (dias <= 180){ pct = Math.max(10, 50 - dias/6); color = 'var(--green)'; }
+  else { pct = 5; color = 'var(--green)'; }
+
+  const label = dias < 0 ? `hace ${Math.abs(dias)}d` : `${dias}d`;
+  return `<div class="days-wrap">
+    <div class="days-bar-bg"><div class="days-bar" style="width:${pct}%;background:${color}"></div></div>
+    <span class="days-num" style="color:${color}">${label}</span>
+  </div>`;
+}
+
+function fmtFecha(s) {
+  if (s === "2099-12-31") return "—";
+  const [y,m,d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function render() {
+  const search = document.getElementById("search").value.toLowerCase();
+  const fEstado = document.getElementById("f-estado").value;
+  const fTipo   = document.getElementById("f-tipo").value;
+
+  const procesado = ITEMS.map(([nombre, tipo, proveedor, fecha]) => {
+    const dias   = diasRestantes(fecha);
+    const estado = getEstado(dias);
+    return { nombre, tipo, proveedor, fecha, dias, estado };
+  });
+
+  // Stats
+  const v = procesado.filter(i => i.estado === "vencido").length;
+  const c = procesado.filter(i => i.estado === "critico").length;
+  const p = procesado.filter(i => i.estado === "proximo").length;
+  const g = procesado.filter(i => i.estado === "vigente").length;
+  const m = procesado.filter(i => i.estado === "perpetuo").length;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat red"><div class="stat-num">${v+c}</div><div class="stat-label">Vencidos / Críticos</div></div>
+    <div class="stat amber"><div class="stat-num">${p}</div><div class="stat-label">Por vencer (&lt;30d)</div></div>
+    <div class="stat green"><div class="stat-num">${g}</div><div class="stat-label">Vigentes</div></div>
+    <div class="stat stat-default"><div class="stat-num">${procesado.length}</div><div class="stat-label">Total monitoreado</div></div>
+  `;
+  document.getElementById("total-count").textContent = procesado.length;
+
+  // Filter
+  const filtrado = procesado.filter(i => {
+    const matchSearch = i.nombre.toLowerCase().includes(search) || i.proveedor.toLowerCase().includes(search);
+    const matchEstado = !fEstado || i.estado === fEstado;
+    const matchTipo   = !fTipo   || i.tipo === fTipo;
+    return matchSearch && matchEstado && matchTipo;
+  });
+
+  // Sort: vencidos primero, luego criticos, proximos, vigentes, perpetuos
+  const orden = { vencido:0, critico:1, proximo:2, vigente:3, perpetuo:4 };
+  filtrado.sort((a,b) => {
+    if (orden[a.estado] !== orden[b.estado]) return orden[a.estado] - orden[b.estado];
+    if (a.dias !== null && b.dias !== null) return a.dias - b.dias;
+    return 0;
+  });
+
+  const tbody = document.getElementById("tbody");
+  if (filtrado.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty">// sin resultados</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtrado.map(({ nombre, tipo, proveedor, fecha, dias, estado }, i) => `
+    <tr style="animation-delay:${i*0.03}s">
+      <td class="col-name"><span class="name-cell" title="${nombre}">${nombre}</span></td>
+      <td class="col-prov"><span class="prov-cell">${proveedor}</span></td>
+      <td class="col-tipo"><span class="tipo-tag">${tipo.toUpperCase()}</span></td>
+      <td class="col-fecha"><span class="fecha-cell">${fmtFecha(fecha)}</span></td>
+      <td class="col-estado">${badgeHTML(estado, dias)}</td>
+      <td class="col-dias">${diasBarHTML(dias, estado)}</td>
+    </tr>
+  `).join("");
+}
+
+// Fecha header
+const dias2 = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+document.getElementById("fecha-hoy").textContent =
+  `${dias2[today.getDay()]}, ${today.getDate()} de ${meses[today.getMonth()]} de ${today.getFullYear()}`.toUpperCase();
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("f-estado").addEventListener("change", render);
+document.getElementById("f-tipo").addEventListener("change", render);
+
+render();
+</script>
+</body>
+</html>
